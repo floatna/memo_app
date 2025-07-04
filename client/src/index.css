@@ -1,68 +1,114 @@
+/* ========= ルート変数 ========= */
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --bg:          #ffffff;
+  --fg:          #213547;
+  --card-bg:     #fefefe;
+  --card-fg:     #1a73e8;
+  --border:      #e2e2e2;
+  --shadow:      rgba(0, 0, 0, 0.08);
+  --card-hover:  rgba(26, 115, 232, 0.12);  /* 薄い幕色 */
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+[data-theme="dark"] {
+  --bg:          #1b1b1b;
+  --fg:          #e0e0e0;
+  --card-bg:     #2b2b2b;
+  --card-fg:     #40a9ff;
+  --border:      #333;
+  --shadow:      rgba(0, 0, 0, 0.40);
+  --card-hover:  rgba(64, 169, 255, 0.18);
 }
 
-body {
+/* ========= リセット & 共通 ========= */
+html, body, #root {
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
+a { color: var(--card-fg); text-decoration: none; }
+a:hover { opacity: 0.8; }
 
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background: var(--card-fg);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6em 1.2em;
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: opacity .25s;
 }
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+button:hover { opacity: 0.9; }
+
+input, textarea {
+  background: var(--card-bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5em;
+  font-size: 1em;
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+/* カード汎用 */
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 4px 8px var(--shadow);
+  padding: 1rem;
+}
+
+/* 中央寄せページ用 */
+.centered-page {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* =========================================
+   ▼ すべてのカード共通　（クリック領域は .app-card）
+========================================= */
+.app-card {
+  color: var(--fg);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: background .15s, transform .15s, box-shadow .15s;
+}
+.app-card:hover {
+  background: var(--card-hover);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 12px var(--shadow);
+}
+
+/* --- タイトル：1 行で省略 --- */
+.app-card h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: inherit;            /* 黒（ダークはライト）で統一 */
+}
+
+/* --- 本文：2 行で省略 --- */
+.app-card p {
+  margin: 0;
+  font-size: 13px;
+  color: inherit;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* 2 行クランプ */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }

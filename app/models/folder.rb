@@ -1,13 +1,17 @@
 class Folder < ApplicationRecord
-  has_many :cards
-  has_many :children, class_name: "Folder", foreign_key: "parent_id"
+  has_many :cards,    dependent: :destroy
+  has_many :children, class_name: "Folder",
+                      foreign_key: :parent_id,
+                      dependent: :destroy
   belongs_to :parent, class_name: "Folder", optional: true
 
+  # 再帰的にツリー JSON を返す
   def as_tree_json
     {
       id: id,
       name: name,
-      cards: cards.map { |card| { id: card.id, title: card.title, body: card.body } },
+      # 並び順が必要なら `.order(:position)` などを追加
+      cards:    cards.map(&:as_json),
       children: children.map(&:as_tree_json)
     }
   end

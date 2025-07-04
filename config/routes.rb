@@ -1,16 +1,20 @@
 Rails.application.routes.draw do
+  # ----- 通常の HTML ルート -----
   resources :cards
-  resources :folders
-  # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
+  resources :folders do
+    # PATCH /folders/sort
+    collection { patch :sort }
+  end
+
+  # ----- API 専用ルート -----
   namespace :api do
-  resources :folders, only: [:index, :show]
-end
+    resources :folders, only: [ :index, :show ]
+  end
 
-  # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
-  # Can be used by load balancers and uptime monitors to verify that the app is live.
-  get "up" => "rails/health#show", as: :rails_health_check
+  # ヘルスチェック
+  get "up", to: "rails/health#show", as: :rails_health_check
 
-  # Defines the root path route ("/")
+  # ルートパス（必要なら）
   # root "posts#index"
 end

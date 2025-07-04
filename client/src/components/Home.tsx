@@ -1,169 +1,244 @@
-// client/src/components/Home.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  arrayMove,
+  horizontalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
-type Folder = {
-  id: number;
-  name: string;
-};
+/* ---------- 型 ---------- */
+type Folder = { id: number; name: string };
 
-type Card = {
-  id: number;
-  title: string;
-  body: string;
-};
-
-function Home() {
+/* ---------- Page ---------- */
+export default function Home() {
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [cards, setCards] = useState<Card[]>([]);
-  const [newFolderName, setNewFolderName] = useState("");
-  const [newCardTitle, setNewCardTitle] = useState("");
-  const [newCardBody, setNewCardBody] = useState("");
-  const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
-  const [editingCard, setEditingCard] = useState<Card | null>(null);
+  const [newName, setNewName] = useState("");
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [showInput, setShowInput] = useState(false);
 
   useEffect(() => {
     fetch("http://localhost:3000/api/folders")
-      .then((res) => res.json())
-      .then((data) => {
-        setFolders(data);
-        setCards(data.flatMap((folder: any) => folder.cards || []));
-      })
-      .catch((err) => console.error("API error:", err));
+      .then((r) => r.json())
+      .then(setFolders);
   }, []);
 
-  const handleAddFolder = () => {
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
+  const addFolder = () => {
+    const name = newName.trim();
+    if (!name) return;
     fetch("http://localhost:3000/folders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newFolderName }),
-    }).then(() => {
-      setNewFolderName("");
-      window.location.reload();
+      body: JSON.stringify({ name }),
+    })
+      .then((r) => r.json())
+      .then((created: Folder) => {
+        setFolders((p) => [...p, created]);
+        setNewName("");
+        setShowInput(false);
+      });
+  };
+
+  /* ---------- DnD ---------- */
+  const sensors = useSensors(useSensor(PointerSensor));
+  const onDragEnd = (ev: DragEndEvent) => {
+    const { active, over } = ev;
+    if (!over || active.id === over.id) return;
+    const oldIdx = folders.findIndex((f) => f.id === active.id);
+    const newIdx = folders.findIndex((f) => f.id === over.id);
+    const ordered = arrayMove(folders, oldIdx, newIdx);
+    setFolders(ordered);
+    fetch("http://localhost:3000/folders/sort", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ order: ordered.map((f) => f.id) }),
     });
   };
 
-  const handleUpdateFolder = () => {
-    if (!editingFolder) return;
-    fetch(`http://localhost:3000/folders/${editingFolder.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: editingFolder.name }),
-    }).then(() => {
-      setEditingFolder(null);
-      window.location.reload();
-    });
-  };
+  /* ---------- SortableCard ---------- */
+  const SortableCard = ({ folder }: { folder: Folder }) => {
+    const { attributes, listeners, setNodeRef, transform, transition } =
+      useSortable({ id: folder.id });
 
-  const handleAddCard = () => {
-    fetch("http://localhost:3000/cards", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: newCardTitle, body: newCardBody }),
-    }).then(() => {
-      setNewCardTitle("");
-      setNewCardBody("");
-      window.location.reload();
-    });
-  };
+    const style: CSSProperties = {
+      ...css.card,
+      transform: CSS.Transform.toString(transform),
+      transition,
+      touchAction: "none",
+    };
 
-  const handleUpdateCard = () => {
-    if (!editingCard) return;
-    fetch(`http://localhost:3000/cards/${editingCard.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: editingCard.title, body: editingCard.body }),
-    }).then(() => {
-      setEditingCard(null);
-      window.location.reload();
-    });
+    return (
+      <Link
+        ref={setNodeRef}
+        to={`/folders/${folder.id}`}
+        {...attributes}
+        {...listeners}
+        style={style}
+        className="app-card"
+      >
+        <h3 style={css.cardTitle}>{folder.name}</h3>
+      </Link>
+    );
   };
 
   return (
-    <div style={{ padding: "1rem" }}>
-      <h1>トップフォルダ一覧</h1>
-      <ul>
-        {folders.map((folder) => (
-          <li key={folder.id}>
-            <Link to={`/folders/${folder.id}`}>{folder.name}</Link>
-            <button onClick={() => setEditingFolder(folder)}>編集</button>
-          </li>
-        ))}
-      </ul>
+    <div className="centered-page" style={css.page}>
+      {/* overlay */}
+      <div
+        style={{
+          ...css.overlay,
+          opacity: showInput ? 1 : 0,
+          pointerEvents: showInput ? "auto" : "none",
+        }}
+        onClick={() => setShowInput(false)}
+      />
 
-      {editingFolder && (
-        <div>
-          <h3>フォルダ編集</h3>
+      {/* header */}
+      <header style={css.header}>
+        <h1 style={css.title}>📁 Folders</h1>
+        <button
+          style={css.themeBtn}
+          onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
+        >
+          {theme === "light" ? "🌙" : "☀"}
+        </button>
+      </header>
+
+      {/* grid */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={onDragEnd}
+      >
+        <SortableContext
+          items={folders.map((f) => f.id)}
+          strategy={horizontalListSortingStrategy}
+        >
+          <div style={css.grid}>
+            {folders.map((f) => (
+              <SortableCard key={f.id} folder={f} />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+
+      {/* add button & slide form */}
+      <div style={css.formWrapper}>
+        <button style={css.addBtn} onClick={() => setShowInput(true)}>
+          ＋ 作成
+        </button>
+
+        <div
+          style={{
+            ...css.inputArea,
+            transform: showInput ? "translateY(0)" : "translateY(-10px)",
+            maxHeight: showInput ? 80 : 0,
+            opacity: showInput ? 1 : 0,
+          }}
+        >
           <input
-            type="text"
-            value={editingFolder.name}
-            onChange={(e) =>
-              setEditingFolder({ ...editingFolder, name: e.target.value })
-            }
+            style={css.input}
+            placeholder="新しいフォルダ名"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addFolder()}
+            autoFocus={showInput}
           />
-          <button onClick={handleUpdateFolder}>更新</button>
+          <button style={css.inputAddBtn} onClick={addFolder}>
+            追加
+          </button>
         </div>
-      )}
-
-      <h2>カード一覧</h2>
-      {cards.map((card) => (
-        <div key={card.id} style={{ border: "1px solid #ccc", padding: "0.5rem", marginBottom: "0.5rem" }}>
-          <h3>
-            <Link to={`/cards/${card.id}`}>{card.title}</Link>
-          </h3>
-
-          <p>{card.body}</p>
-          <button onClick={() => setEditingCard(card)}>編集</button>
-        </div>
-      ))}
-
-      {editingCard && (
-        <div>
-          <h3>カード編集</h3>
-          <input
-            type="text"
-            value={editingCard.title}
-            onChange={(e) =>
-              setEditingCard({ ...editingCard, title: e.target.value })
-            }
-          />
-          <textarea
-            value={editingCard.body}
-            onChange={(e) =>
-              setEditingCard({ ...editingCard, body: e.target.value })
-            }
-          />
-          <br />
-          <button onClick={handleUpdateCard}>更新</button>
-        </div>
-      )}
-
-      <h2>フォルダ作成</h2>
-      <input
-        type="text"
-        placeholder="新しいフォルダ名"
-        value={newFolderName}
-        onChange={(e) => setNewFolderName(e.target.value)}
-      />
-      <button onClick={handleAddFolder}>作成</button>
-
-      <h2>カード作成</h2>
-      <input
-        type="text"
-        placeholder="カードタイトル"
-        value={newCardTitle}
-        onChange={(e) => setNewCardTitle(e.target.value)}
-      />
-      <br />
-      <textarea
-        placeholder="本文"
-        value={newCardBody}
-        onChange={(e) => setNewCardBody(e.target.value)}
-      />
-      <br />
-      <button onClick={handleAddCard}>作成</button>
+      </div>
     </div>
   );
 }
 
-export default Home;
+/* ---------- Styles ---------- */
+const css: Record<string, CSSProperties> = {
+  page: { position: "relative", display: "flex", flexDirection: "column", gap: 36, padding: 40 },
+  overlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.35)",
+    backdropFilter: "blur(1px)",
+    transition: "opacity .25s ease",
+    zIndex: 5,
+  },
+  header: { display: "flex", gap: 16, alignItems: "center" },
+  title: { margin: 0, fontSize: 40 },
+  themeBtn: {
+    border: "none",
+    background: "var(--card-bg)",
+    padding: "6px 12px",
+    borderRadius: 6,
+    cursor: "pointer",
+  },
+  grid: {
+    display: "flex",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 32,
+    maxWidth: 1100,
+  },
+  card: {
+    width: 240,
+    height: 110,
+    background: "var(--card-bg)",
+    border: "1px solid transparent",
+    borderRadius: 12,
+    boxShadow: `0 3px 6px var(--shadow)`,
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    textDecoration: "none",
+  },
+  cardTitle: { margin: 0, fontSize: 18, fontWeight: 600 },
+
+  /* slide form */
+  formWrapper: { position: "relative", zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 },
+  addBtn: {
+    padding: "0.6em 1.4em",
+    borderRadius: 8,
+    border: "none",
+    background: "var(--card-fg)",
+    color: "#fff",
+    fontSize: 16,
+    cursor: "pointer",
+  },
+  inputArea: {
+    display: "flex",
+    gap: 10,
+    overflow: "hidden",
+    transition: "max-height .25s ease, opacity .25s ease, transform .25s ease",
+  },
+  input: {
+    width: 240,
+    padding: "10px 12px",
+    border: "1px solid var(--border)",
+    borderRadius: 8,
+    background: "var(--card-bg)",
+    color: "var(--fg)",
+    fontSize: 14,
+  },
+  inputAddBtn: {
+    padding: "0 22px",
+    border: "none",
+    borderRadius: 8,
+    background: "var(--card-fg)",
+    color: "#fff",
+    cursor: "pointer",
+  },
+};

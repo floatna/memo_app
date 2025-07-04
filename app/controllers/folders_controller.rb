@@ -1,33 +1,30 @@
 class FoldersController < ApplicationController
-  before_action :set_folder, only: %i[ show update destroy ]
+  before_action :set_folder, only: %i[show update destroy]
 
   # GET /folders
- 
-def index
-  @folders = Folder.all
+  # ルートフォルダだけ返し、子孫は JSON に含める
+  def index
+    roots = Folder.where(parent_id: nil).order(:position)
+    render json: roots.map(&:as_tree_json)
+  end
 
-  render json: @folders
-end
-
-
-  # GET /folders/1
+  # GET /folders/:id
   def show
-  folder = Folder.find(params[:id])
-  render json: folder.as_tree_json
-end
+    render json: @folder.as_tree_json
+  end
 
   # POST /folders
   def create
-    @folder = Folder.new(folder_params)
+    folder = Folder.new(folder_params)
 
-    if @folder.save
-      render json: @folder, status: :created, location: @folder
+    if folder.save
+      render json: folder, status: :created
     else
-      render json: @folder.errors, status: :unprocessable_entity
+      render json: folder.errors, status: :unprocessable_entity
     end
   end
 
-  # PATCH/PUT /folders/1
+  # PATCH /folders/:id
   def update
     if @folder.update(folder_params)
       render json: @folder
@@ -36,19 +33,28 @@ end
     end
   end
 
-  # DELETE /folders/1
+  # DELETE /folders/:id
   def destroy
     @folder.destroy!
+    head :no_content
+  end
+
+  # PATCH /folders/sort
+  # params[:order] => [3,1,2,...]
+  def sort
+    params.require(:order).each_with_index do |id, idx|
+      Folder.where(id: id).update_all(position: idx)
+    end
+    head :ok
   end
 
   private
-    # Use callbacks to share common setup or constraints between actions.
-    def set_folder
-  @folder = Folder.find(params.require(:id))
-end
 
-def folder_params
-  params.require(:folder).permit(:name, :parent_id)
-end
+  def set_folder
+    @folder = Folder.find(params[:id])
+  end
 
+  def folder_params
+    params.require(:folder).permit(:name, :parent_id, :position)
+  end
 end
